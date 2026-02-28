@@ -121,6 +121,11 @@ from export_utils import (
 # ── Session state helpers ─────────────────────────────────────────────────────
 
 def _get_kp() -> KenPomClient | None:
+    # Auto-load from Streamlit secrets or environment variable if not already in session
+    if not st.session_state.get("kenpom_key"):
+        key_from_secrets = st.secrets.get("KENPOM_API_KEY", "") or os.environ.get("KENPOM_API_KEY", "")
+        if key_from_secrets:
+            st.session_state["kenpom_key"] = key_from_secrets
     api_key = st.session_state.get("kenpom_key", "").strip()
     if not api_key:
         return None
@@ -153,28 +158,34 @@ with st.sidebar:
     )
 
     st.divider()
-    st.markdown("**🔑 KenPom API Key**")
 
-    # Load saved key from .env if present
-    default_key = ""
-    env_path = Path(".env")
-    if env_path.exists():
-        for line in env_path.read_text().splitlines():
-            if line.startswith("KENPOM_API_KEY="):
-                default_key = line.split("=", 1)[1].strip()
+    # If key is pre-configured via Streamlit secrets, hide the input entirely
+    _secrets_key = st.secrets.get("KENPOM_API_KEY", "") or os.environ.get("KENPOM_API_KEY", "")
+    if _secrets_key:
+        st.markdown("**🔑 KenPom API Key**")
+        st.success("Key configured", icon="✅")
+    else:
+        st.markdown("**🔑 KenPom API Key**")
+        # Load saved key from .env if present
+        default_key = ""
+        env_path = Path(".env")
+        if env_path.exists():
+            for line in env_path.read_text().splitlines():
+                if line.startswith("KENPOM_API_KEY="):
+                    default_key = line.split("=", 1)[1].strip()
 
-    api_key_input = st.text_input(
-        "API Key",
-        value=default_key,
-        type="password",
-        placeholder="Paste Bearer token here",
-        label_visibility="collapsed",
-    )
-    if api_key_input:
-        st.session_state["kenpom_key"] = api_key_input
-        if st.button("💾 Save Key", use_container_width=True):
-            env_path.write_text(f"KENPOM_API_KEY={api_key_input}\n")
-            st.success("Saved to .env")
+        api_key_input = st.text_input(
+            "API Key",
+            value=default_key,
+            type="password",
+            placeholder="Paste Bearer token here",
+            label_visibility="collapsed",
+        )
+        if api_key_input:
+            st.session_state["kenpom_key"] = api_key_input
+            if st.button("💾 Save Key", use_container_width=True):
+                env_path.write_text(f"KENPOM_API_KEY={api_key_input}\n")
+                st.success("Saved to .env")
 
     st.divider()
     if st.button("🔄 Refresh All Data", use_container_width=True):
